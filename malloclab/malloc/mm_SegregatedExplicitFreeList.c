@@ -18,8 +18,7 @@
 #include "mm.h"
 #include "memlib.h"
 
-#define DEBUG
-#undef DEBUG
+
 
  /*********************************************************
   * NOTE TO STUDENTS: Before you do anything else, please
@@ -37,6 +36,9 @@ team_t team = {
 	/* Second member's email address (leave blank if none) */
 	""
 };
+
+#define DEBUG
+#undef DEBUG
 
 #define WSIZE				4
 #define DSIZE				8
@@ -87,7 +89,7 @@ static void erase_list(void *bp);
 static void *extend_heap(size_t words);
 static void *coalesce(void *bp);
 
-static int find_place(size_t asize);
+static int find_place(int i, size_t asize);
 int mm_init(void);
 void *mm_malloc(size_t size);
 
@@ -328,8 +330,9 @@ static void push_list(void *bp)
 	int root = ptr;
 	PUT(cat, root);
 
-	sprintf(ch, "-----push_list-----\n");
+	
 #ifdef DEBUG
+	sprintf(ch, "-----push_list-----\n");
 	mm_check(ch);
 #endif // DEBUG
 
@@ -590,22 +593,25 @@ static void *coalesce1(void *bp)
 	return bp;
 }
 
-static int find_place(size_t asize)
+static int find_place(int i, size_t asize)
 {
 	int cat = 0;
 	int size = asize;
-	int i = 0, lim = 32;
+	int lim = 1 << (i+5);
 	while (i < 8 && (size > lim || GET(heap_start + i * WSIZE) == 0))
 	{
 		i++;
 		lim <<= 1;
 	}
 	if (GET(heap_start + i * WSIZE) == 0) ++i;
+	return i;
+	/*
 	if (i == 9) return 0;
 	else cat = (unsigned int)(long long)(void *)(heap_start + i * WSIZE);
 	int res = find_node(GET(cat), asize);
 
 	return res;
+	*/
 }
 
 static void place(int bp, size_t asize)
@@ -641,8 +647,9 @@ static void place(int bp, size_t asize)
 		PUT(FTRP(bp), PACK(csize, 1));
 	}
 
-	sprintf(ch, "-----place-----\n");
+	
 #ifdef DEBUG
+	sprintf(ch, "-----place-----\n");
 	mm_check(ch);
 #endif // DEBUG
 }
@@ -660,7 +667,7 @@ void *mm_malloc(size_t size)
 
 	size_t asize;
 	size_t extendsize;
-	int bp;
+	int bp=0;
 
 	if (size == 0)
 		return NULL;
@@ -670,7 +677,20 @@ void *mm_malloc(size_t size)
 	else
 		asize = DSIZE * ((size + (DSIZE)+(DSIZE - 1)) / DSIZE);
 
-	if ((bp = find_place(asize)) != 0)
+	int i = 0;
+	while ((i = find_place(i, asize)) < 9)
+	{
+		void *cat = (unsigned int)(long long)(heap_start + i * WSIZE);
+		int res = find_node(GET(cat), asize);
+		if (res != 0)
+		{
+			bp = res;
+			break;
+		}
+		++i;
+	}
+
+	if (bp != 0)
 	{
 		place(bp, asize);
 		return (void *)bp;
@@ -681,8 +701,9 @@ void *mm_malloc(size_t size)
 		return NULL;
 	place(bp, asize);
 
-	sprintf(ch, "-----mm_malloc-----\n");
+	
 #ifdef DEBUG
+	sprintf(ch, "-----mm_malloc-----\n");
 	mm_check(ch);
 #endif DEBUG
 
@@ -708,8 +729,9 @@ void mm_free(void *ptr)
 
 	coalesce(ptr);
 
-	sprintf(ch, "-----mm_free-----\n");
+	
 #ifdef DEBUG
+	sprintf(ch, "-----mm_free-----\n");
 	mm_check(ch);
 #endif // DEBUG
 }
